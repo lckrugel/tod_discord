@@ -262,16 +262,23 @@ func (gc *GatewayClient) runWorkers(ctx context.Context) reconnectType {
 		connCancel()
 		<-done
 		return reconnectTypeShutdown
+
 	case <-eventListener.reconnectChan:
-		code := eventListener.lastCloseCode
-		slog.Debug("reconnection requested", "closeCode", code)
+		slog.Debug("reconnection requested")
 		connCancel()
 		<-done
-		if shouldResume(code) && gc.sessionId != "" && gc.resumeUrl != "" {
+		return reconnectTypeReconnect
+
+	case <-eventListener.resumeChan:
+		slog.Debug("resume requested")
+		connCancel()
+		<-done
+		if gc.sessionId != "" && gc.resumeUrl != "" {
 			return reconnectTypeResume
 		} else {
 			return reconnectTypeReconnect
 		}
+
 	case <-done:
 		slog.Debug("all workers stopped unexpectedly")
 		return reconnectTypeReconnect
@@ -311,16 +318,4 @@ func getWebsocketURL(api_key string) (string, error) {
 		return "", errors.New("invalid url")
 	}
 	return url, nil
-}
-
-func shouldResume(code int) bool {
-	switch code {
-	case 4000, 4001, 4002, 4003, 4004, 4005, 4007, 4009, 4012, 4013, 4014, 9999:
-		return false
-	case 4006, 4008, 4010, 4011:
-		// Should not reconnect
-		return false
-	default:
-		return true
-	}
 }

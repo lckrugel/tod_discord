@@ -16,7 +16,7 @@ type eventListener struct {
 	conn             *websocket.Conn
 	heartbeatManager *heartbeatManager
 	reconnectChan    chan struct{}
-	lastCloseCode    int
+	resumeChan       chan struct{}
 }
 
 func newEventListener(conn *websocket.Conn, heartbeatManager *heartbeatManager) *eventListener {
@@ -24,6 +24,7 @@ func newEventListener(conn *websocket.Conn, heartbeatManager *heartbeatManager) 
 		conn:             conn,
 		heartbeatManager: heartbeatManager,
 		reconnectChan:    make(chan struct{}, 1),
+		resumeChan:       make(chan struct{}, 1),
 	}
 }
 
@@ -39,15 +40,14 @@ func (el *eventListener) start(ctx context.Context) {
 			if err := el.readAndHandleEvent(ctx); err != nil {
 				if code, text, ok := isGatewayCloseError(err); ok {
 					slog.Debug("websocket closed", "code", code, "text", text)
-					el.lastCloseCode = code
 					slog.Info("stopping event listener")
-					el.requestReconnect()
+					el.requestResume()
 					return
 				}
 				if isConnectionClosed(err) {
-					slog.Debug("connection closed, requesting reconnect")
+					slog.Debug("connection closed, attempting to resume")
 					slog.Info("stopping event listener")
-					el.requestReconnect()
+					el.requestResume()
 					return
 				}
 				if isTimeoutError(err) {
@@ -132,8 +132,21 @@ func (el *eventListener) handleEvent(msg []byte) error {
 		el.requestReconnect()
 
 	case events.Invalid_Session:
-		slog.Info("invalid session, reconnecting...")
-		el.lastCloseCode = 9999 // Should not resume
+		var invalidSessionEvent events.InvalidSessionEvent
+		err := invalidSessionEvent.DecodeData(*event)
+		if err != nil {
+			return fmt.Errorf("failed to decode invalid session event")
+		}
+		if invalidSessionEvent.Resumable {
+			slog.Info("invalid session, resuming...")
+			el.requestResume()
+		} else {
+			slog.Info("invalid session, reconnecting...")
+			el.requestReconnect()
+		}
+
+	case events.Hello:
+		slog.Info("received Hello, reconnecting...")
 		el.requestReconnect()
 
 	default:
@@ -159,6 +172,14 @@ func (el *eventListener) handleDispatchEvent(event *events.Event) error {
 func (el *eventListener) requestReconnect() {
 	select {
 	case el.reconnectChan <- struct{}{}:
+	default:
+		// Channel is full, reconnect already requested
+	}
+}
+
+func (el *eventListener) requestResume() {
+	select {
+	case el.resumeChan <- struct{}{}:
 	default:
 		// Channel is full, reconnect already requested
 	}
