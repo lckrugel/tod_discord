@@ -1,0 +1,26 @@
+{
+  "bot_name": "Billy The Bot",
+  "intents": {
+    "guilds": true,
+    "guild_members": false,
+    "guild_moderation": false,
+    "guild_expressions": false,
+    "guild_integrations":false,
+    "guild_webhooks": false,
+    "guild_invites": false,
+    "guild_voice_states": false,
+    "guild_presences": false,
+    "guild_messages": true,
+    "guild_message_reactions": true,
+    "guild_message_typing": false,
+    "direct_messages": false,
+    "direct_messages_reactions": false,
+    "direct_message_typing": false,
+    "message_content": true,
+    "guild_scheduled_events": false,
+    "auto_moderation_configuration": false,
+    "auto_moderation_execution": false,
+    "guild_message_polls": false,
+    "direct_message_polls": false
+  }
+}
