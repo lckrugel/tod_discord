@@ -76,7 +76,9 @@ func (gc *GatewayClient) Run(ctx context.Context) error {
 			case reconnectTypeReconnect:
 				slog.Debug("will reconnect with new identify")
 				gc.shouldResume = false
+				gc.lastSequence = nil
 				gc.sessionId = ""
+				gc.resumeUrl = ""
 				continue
 			}
 		}
@@ -173,7 +175,7 @@ func (gc *GatewayClient) connect() error {
 	slog.Debug("ready event received")
 
 	gc.sessionId = readyEvent.Data.Session_id
-	gc.resumeUrl = readyEvent.Data.Resume_url
+	gc.resumeUrl = fmt.Sprintf("%s/?v=9&encoding=json", readyEvent.Data.Resume_url)
 
 	slog.Info("connected")
 	return nil
@@ -317,5 +319,6 @@ func getWebsocketURL(api_key string) (string, error) {
 	if !ok {
 		return "", errors.New("invalid url")
 	}
-	return url, nil
+
+	return fmt.Sprintf("%s/?v=9&encoding=json", url), nil
 }
