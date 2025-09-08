@@ -276,6 +276,7 @@ func (gc *GatewayClient) runWorkers(ctx context.Context) reconnectType {
 		connCancel()
 		<-done
 		if gc.sessionId != "" && gc.resumeUrl != "" {
+			gc.lastSequence = heartbeatManager.lastSequence
 			return reconnectTypeResume
 		} else {
 			return reconnectTypeReconnect
